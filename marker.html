@@ -163,7 +163,8 @@ body.started #tools {display:flex}
     anchor.object3D.updateMatrixWorld(true);
     const origin=anchor.object3D.localToWorld(new three.Vector3(0,0,0)).project(scene.camera);
     const end=anchor.object3D.localToWorld(new three.Vector3(dx,0,dz)).project(scene.camera);
-    return {x:(end.x-origin.x)*innerWidth/2,y:(origin.y-end.y)*innerHeight/2};
+    const rect=scene.canvas.getBoundingClientRect();
+    return {x:(end.x-origin.x)*rect.width/2,y:(origin.y-end.y)*rect.height/2};
   }
   function screenDrag(dx,dy) {
     const ux=projectMarkerAxis(1,0), uz=projectMarkerAxis(0,1);
@@ -283,7 +284,7 @@ body.started #tools {display:flex}
     document.body.classList.add('started');
     setStatus('Starting iPhone / Android camera. Allow CAMERA access if Safari asks…','wait');
     const mount=$('scene-mount');
-    mount.innerHTML=`<a-scene embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" background="transparent: true" renderer="antialias: false; alpha: true; precision: mediump" arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; sourceWidth: 640; sourceHeight: 480; displayWidth: 640; displayHeight: 480;">
+    mount.innerHTML=`<a-scene embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" background="transparent: true" renderer="antialias: false; alpha: true; precision: medium" arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; sourceWidth: 640; sourceHeight: 480; displayWidth: 640; displayHeight: 480;">
       <a-marker id="hiro-marker" preset="hiro" emitevents="true" smooth="true" smooth-count="8" smooth-tolerance="0.01" smooth-threshold="3"></a-marker>
       <a-entity id="stable-anchor" visible="false"></a-entity>
       <a-entity camera look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
@@ -311,6 +312,19 @@ body.started #tools {display:flex}
     },12000);
   }
   startButton.addEventListener('click',startCameraAR);
+  // Match the canvas to the cropped camera image, including in portrait view.
+  let lastCanvasRect='';
+  function syncCanvasToSource() {
+    const source=document.getElementById('arjs-video');
+    const canvas=scene && scene.canvas;
+    if(!source || !canvas) return;
+    const r=source.getBoundingClientRect();
+    if(!r.width || !r.height) return;
+    const key=[r.left,r.top,r.width,r.height].map(n=>Math.round(n*10)/10).join(',');
+    if(key===lastCanvasRect) return;
+    lastCanvasRect=key;
+    for(const [prop,value] of Object.entries({position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',margin:'0'})) canvas.style.setProperty(prop,value,'important');
+  }
   function initialize() {
     if(solarSystem || !marker || !anchor) return;
     const THREE=AFRAME.THREE;
@@ -454,6 +468,7 @@ body.started #tools {display:flex}
     function tick(t) {
       const dt=lastTime?Math.min((t-lastTime)/1000,.05):0;
       lastTime=t;
+      syncCanvasToSource();
       // Tracking controls the anchor; planet orbiting NEVER changes its pose.
       if(markerVisible && marker.object3D.visible) {
         marker.object3D.updateMatrixWorld(true);
