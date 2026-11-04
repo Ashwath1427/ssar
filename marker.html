@@ -502,7 +502,7 @@ body.started #tools {display:flex}
       } else if(!markerVisible)lastNear='';
       if(orbitsRunning && anchor.object3D.visible) {
         belt.rotation.y+=dt*.015;
-        for(const o of orbiters){o.pivot.rotation.y+=dt*o.speed;o.mesh.rotation.y+=dt*.18;}
+        for(const o of orbiters){o.pivot.rotation.y+=dt*o.speed*1.3;o.mesh.rotation.y+=dt*.18;}
         if(sun) sun.rotation.y+=dt*.05;
       }
       requestAnimationFrame(tick);
