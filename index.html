@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#03091a">
+  <title>Solar System AR | iPhone + Android Exhibition Edition</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #03091a; color: #f2f8ff; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    canvas { display: block; }
+    #hero { position: fixed; top: 0; left: 0; right: 0; padding: max(24px, env(safe-area-inset-top)) 22px 16px; z-index: 4; pointer-events: none; background: linear-gradient(180deg, rgba(3,9,26,.96), rgba(3,9,26,0)); }
+    .eyebrow { font-size: 11px; letter-spacing: .24em; color: #66e2ff; font-weight: 750; }
+    h1 { font-size: clamp(26px, 5vw, 48px); margin: 6px 0 6px; line-height: 1.06; letter-spacing: -.035em; }
+    #hero p { max-width: 550px; font-size: 13px; line-height: 1.5; margin: 0; color: #b5c9e3; }
+    #guide { position: fixed; z-index: 4; bottom: max(94px, calc(env(safe-area-inset-bottom) + 94px)); left: 50%; transform: translateX(-50%); width: min(92vw, 520px); padding: 12px 16px; border: 1px solid rgba(123,216,255,.24); border-radius: 16px; background: rgba(4, 17, 39, .78); backdrop-filter: blur(16px); text-align: center; font-size: 13px; line-height: 1.45; color: #e1f4ff; pointer-events: none; }
+    #support { color: #8edaff; font-size: 11px; display: block; margin-top: 4px; }
+    #footer { position: fixed; bottom: 14px; left: 18px; z-index: 4; color: #91acc7; font-size: 11px; pointer-events: none; }
+    #reset { display: none; position: fixed; top: max(20px, env(safe-area-inset-top)); right: 16px; z-index: 9; background: rgba(2,22,43,.85); border: 1px solid #57dfff; border-radius: 99px; padding: 11px 15px; font-weight: 700; color: white; cursor: pointer; }
+    body.in-ar #hero { display: none; }
+    body.in-ar #footer { display: none; }
+    body.in-ar #guide { bottom: max(84px, calc(env(safe-area-inset-bottom) + 84px)); }
+    body.in-ar #reset { display: block; }
+    .ar-action { display: none; position: fixed; left: 14px; z-index: 15; border-radius: 12px; padding: 12px 14px; font-size: 13px; font-weight: 750; cursor: pointer; max-width: 58vw; }
+    #place-now { top: max(16px, env(safe-area-inset-top)); background: #20d9e7; border: 2px solid #a4f9ff; color: #032331; }
+    #quick-place { top: max(74px, calc(env(safe-area-inset-top) + 58px)); background: rgba(3, 20, 39, .86); border: 1px solid #6e98c2; color: #fff; }
+    body.in-ar #place-now.available, body.in-ar #quick-place.available { display: block; }
+    #ar-tools { display: none; position: fixed; z-index: 15; bottom: max(76px, calc(env(safe-area-inset-bottom) + 76px)); left: 50%; transform: translateX(-50%); align-items: center; justify-content: center; gap: 7px; width: min(96vw, 530px); }
+    #ar-tools button { border: 1px solid rgba(125,216,255,.5); background: rgba(4,20,40,.9); color: #e7f8ff; font: 700 13px system-ui, sans-serif; padding: 11px 12px; border-radius: 12px; cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+    #ar-tools #size-value { min-width: 54px; text-align: center; font-weight: 800; font-size: 12px; }
+    #ar-tools #motion { border-color: #50d9e5; }
+    body.in-ar.placed #ar-tools { display: flex; }
+    body.in-ar.placed #guide { bottom: max(139px, calc(env(safe-area-inset-bottom) + 139px)); }
+    #mode-link { display: inline-block; margin-top: 12px; pointer-events: auto; background: #20d9e7; color: #032331; text-decoration: none; border-radius: 999px; padding: 11px 15px; font-size: 13px; font-weight: 800; box-shadow: 0 6px 28px rgba(0,0,0,.25); }
+    #mode-link:focus-visible { outline: 3px solid white; outline-offset: 2px; }
+    #ar-start-note { position: fixed; z-index: 4; bottom: 58px; left: 50%; transform: translateX(-50%); width: 92vw; text-align: center; font-size: 11px; color: #7da2c6; pointer-events: none; }
+    body.in-ar #ar-start-note { display: none; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="hero">
+    <div class="eyebrow">SCIENCE WEEK • INTERACTIVE EXHIBIT</div>
+    <h1>Explore Our Solar System</h1>
+    <p>Eight planets, Saturn's rings and Earth's Moon. Explore in 3D, place on a table with Android WebXR, or use printed-marker camera AR on iPhone Safari and Android Chrome.</p><a id="mode-link" href="marker.html">★ IPHONE + ANDROID CAMERA AR (HIRO MARKER)</a>
+  </div>
+  <div id="guide">Drag to explore the 3D preview. On a compatible Android phone, tap <strong>START AR</strong> below.<span id="support">Checking AR support…</span></div>
+  <div id="ar-start-note">iPhone: choose HIRO Marker AR above. Android: use WebXR Table AR or HIRO Marker AR. Camera modes require HTTPS and visible surroundings.</div>
+  <div id="footer">SUN · MERCURY · VENUS · EARTH · MARS · JUPITER · SATURN · URANUS · NEPTUNE</div>
+  <button id="reset" type="button">↻ Place Again</button>
+  <button id="place-now" class="ar-action" type="button">✓ PLACE ON TABLE</button>
+  <button id="quick-place" class="ar-action" type="button">INSTANT FLOATING DEMO</button>
+  <div id="ar-tools" aria-label="AR Solar System controls">
+    <button id="smaller" type="button" aria-label="Make Solar System smaller">−</button>
+    <span id="size-value">1.2 m</span>
+    <button id="bigger" type="button" aria-label="Make Solar System bigger">+</button>
+    <button id="motion" type="button">▶ Start orbits</button>
+  </div>
+
+  <script src="space-effects.js"></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { ARButton } from 'three/addons/webxr/ARButton.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x03091a);
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 100);
+    camera.position.set(0, 1.25, 2.1);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local');
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.minDistance = 1.0;
+    controls.maxDistance = 4.2;
+    controls.target.set(0, 0.12, 0);
+    controls.update();
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.25));
+    const sunLight = new THREE.PointLight(0xffe6ad, 45, 5, 1.5);
+    sunLight.position.set(0, .12, 0);
+    scene.add(sunLight);
+
+    // The placementRoot represents ONE real-world location. Planet orbiting
+    // happens only inside solarSystem, never by moving placementRoot.
+    const placementRoot = new THREE.Group();
+    scene.add(placementRoot);
+    const solarSystem = new THREE.Group();
+    placementRoot.add(solarSystem);
+    const belt=SpaceEffects.asteroidBelt(THREE,{inner:.385,outer:.425,count:320,rockSize:.0032,height:.12});solarSystem.add(belt);
+    const modelStars=SpaceEffects.starField(THREE,{count:110,radius:1.0,spread:.55,size:2,opacity:.72});modelStars.position.y=.12;solarSystem.add(modelStars);
+    const sphereGeometry = new THREE.SphereGeometry(1, 32, 24);
+    const orbiters = [];
+
+    // All planet textures are generated in the browser: no images or assets required.
+    // To reuse Unity planet images later, replace the materials' maps with TextureLoader images.
+    function planetTexture(colors, seed, stripes = false, earth = false) {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 256;
+      const ctx = c.getContext('2d');
+      let s = seed >>> 0;
+      const rnd = () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+      const hex = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+      const palette = colors.map(hex);
+      const img = ctx.createImageData(c.width, c.height);
+      for (let y = 0; y < c.height; y++) {
+        const lat = y / c.height;
+        for (let x = 0; x < c.width; x++) {
+          const i = (y * c.width + x) * 4;
+          const wave = Math.sin(y * (stripes ? .25 : .065) + Math.sin(x * .024) * (stripes ? 1.7 : 4.5));
+          const v = stripes ? Math.floor((wave + 1) / 2 * palette.length) : Math.floor(rnd() * palette.length);
+          const color = palette[Math.min(palette.length - 1, v)];
+          const shade = .84 + rnd() * .28;
+          img.data[i] = color[0] * shade;
+          img.data[i+1] = color[1] * shade;
+          img.data[i+2] = color[2] * shade;
+          img.data[i+3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      if (earth) {
+        ctx.fillStyle = '#4e9c6c';
+        for (let i = 0; i < 65; i++) {
+          const x = rnd() * 512, y = 25 + rnd() * 205;
+          const w = 6 + rnd() * 22, h = 4 + rnd() * 14;
+          ctx.beginPath(); ctx.ellipse(x, y, w, h, rnd() * Math.PI, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(245,250,255,.7)';
+        ctx.fillRect(0, 0, 512, 9); ctx.fillRect(0, 246, 512, 10);
+      }
+      const texture = new THREE.CanvasTexture(c);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    }
+
+    function ball(radius, colors, seed, options = {}) {
+      const mat = new THREE.MeshStandardMaterial({
+        map: planetTexture(colors, seed, !!options.stripes, !!options.earth),
+        roughness: 1,
+        metalness: 0,
+        emissive: options.glow ? new THREE.Color(0xff7b12) : new THREE.Color(0x000000),
+        emissiveIntensity: options.glow ? 1.5 : 0
+      });
+      const m = new THREE.Mesh(sphereGeometry, mat);
+      m.scale.setScalar(radius);
+      return m;
+    }
+
+    const sun = ball(.094, ['#ffb222', '#ffdc53', '#ff7d12', '#fff2a0'], 1, { glow: true });
+    sun.position.y = .12;
+    solarSystem.add(sun);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(.115, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffa526, transparent: true, opacity: .09, depthWrite: false }));
+    glow.position.copy(sun.position);
+    solarSystem.add(glow);
+
+    const planets = [
+      { name: 'Mercury', r: .014, d: .16, speed: .19, colors: ['#74716c','#aba49a','#5d5b59'], seed: 2 },
+      { name: 'Venus', r: .024, d: .22, speed: .14, colors: ['#cfab69','#f2d49a','#9f784e'], seed: 3 },
+      { name: 'Earth', r: .026, d: .29, speed: .115, colors: ['#12509d','#1676c3','#073c75'], seed: 4, earth: true },
+      { name: 'Mars', r: .020, d: .36, speed: .092, colors: ['#b74f28','#da7847','#6f2c20'], seed: 5 },
+      { name: 'Jupiter', r: .063, d: .47, speed: .058, colors: ['#a76d50','#d9b48e','#e6d5b9','#8d5943'], seed: 6, stripes: true },
+      { name: 'Saturn', r: .052, d: .60, speed: .045, colors: ['#c7a16b','#ead6a5','#9f8055'], seed: 7, stripes: true },
+      { name: 'Uranus', r: .036, d: .72, speed: .032, colors: ['#71c8d2','#a2e2e5','#64aebf'], seed: 8 },
+      { name: 'Neptune', r: .034, d: .83, speed: .024, colors: ['#194fa6','#286cc8','#153e81'], seed: 9 }
+    ];
+
+    function orbitCircle(radius) {
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(radius - .0011, radius + .0011, 128),
+        new THREE.MeshBasicMaterial({ color: 0x83b3e9, side: THREE.DoubleSide, transparent: true, opacity: .27, depthWrite: false })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = .12;
+      solarSystem.add(mesh);
+    }
+
+    for (let i = 0; i < planets.length; i++) {
+      const p = planets[i];
+      orbitCircle(p.d);
+      const pivot = new THREE.Group();
+      pivot.position.y = .12;
+      pivot.rotation.y = i * 1.75;
+      const mesh = ball(p.r, p.colors, p.seed, p);
+      mesh.position.x = p.d;
+      pivot.add(mesh);
+      solarSystem.add(pivot);
+      orbiters.push({ pivot, mesh, speed: p.speed });
+
+      if (p.name === 'Saturn') {
+        const ringSystem = new THREE.Group();
+        ringSystem.position.x = p.d;
+        pivot.add(ringSystem);
+        const ringColors = [0x92775e, 0xe0c9a4, 0x897361];
+        for (let j = 0; j < 3; j++) {
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(.067 + j * .011, .076 + j * .011, 96),
+            new THREE.MeshBasicMaterial({ color: ringColors[j], side: THREE.DoubleSide, transparent: true, opacity: .78 })
+          );
+          ring.rotation.x = -.95;
+          ring.rotation.y = .35;
+          ringSystem.add(ring);
+        }
+      }
+      if (p.name === 'Earth') {
+        const moonPivot = new THREE.Group();
+        moonPivot.position.x = p.d;
+        pivot.add(moonPivot);
+        const moon = ball(.009, ['#bbbdbf','#777e84','#dadcde'], 11);
+        moon.position.set(.042, .012, 0);
+        moonPivot.add(moon);
+        orbiters.push({ pivot: moonPivot, mesh: moon, speed: .36 });
+      }
+    }
+
+    // Background stars appear only in the desktop / non-AR preview.
+    const starCount = 450;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const r = 5 + Math.random() * 9;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = r * Math.cos(phi);
+      starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xbad8ff, size: .023, sizeAttenuation: true }));
+    scene.add(stars);
+
+    // WebXR reticle: show ONLY a recently detected surface. Old hit-test
+    // positions are not trustworthy once the phone has moved.
+    const reticle = new THREE.Mesh(
+      new THREE.RingGeometry(.045, .053, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x50f5ff, side: THREE.DoubleSide, depthTest: false })
+    );
+    reticle.matrixAutoUpdate = false;
+    reticle.visible = false;
+    scene.add(reticle);
+
+    const guide = document.getElementById('guide');
+    const support = document.getElementById('support');
+    const placeNowButton = document.getElementById('place-now');
+    const quickPlaceButton = document.getElementById('quick-place');
+    const sizeValue = document.getElementById('size-value');
+    const motionButton = document.getElementById('motion');
+    const sizeSteps = [0.40, 0.55, 0.70, 0.85, 1.05, 1.25, 1.50];
+    const rememberedSize = Number(localStorage.getItem('solarExpoSizeIndex'));
+    let sizeIndex = Number.isInteger(rememberedSize) && rememberedSize >= 0 && rememberedSize < sizeSteps.length ? rememberedSize : 3;
+    let orbitsRunning = true;  // AR begins paused to make unwanted drift obvious.
+    let hitTestSource = null;
+    let hitTestRequested = false;
+    let activeAnchor = null;
+    let placed = false;
+    let inAR = false;
+    let pendingPlacement = false;
+    let placementGeneration = 0;
+    let lastGuideState = '';
+    let lastSurfaceTime = -Infinity;
+    let scanStartTime = 0;
+    let lastAnchorPoseTime = 0;
+    let trackingJumpDetected = false;
+    const lastSurfaceMatrix = new THREE.Matrix4();
+    const SURFACE_FRESH_MS = 1400; // never use a 20-second-old surface!
+    const QUICK_PLACE_AFTER_MS = 0; // optional floating fallback immediately available
+    const TABLE_OFFSET_M = 0.025;
+    const anchorTarget = new THREE.Vector3();
+    const worldPosition = new THREE.Vector3();
+
+    function setGuide(state, html) {
+      if (lastGuideState !== state) {
+        lastGuideState = state;
+        guide.innerHTML = html;
+      }
+    }
+
+    function canPlaceOnTable() {
+      return inAR && !placed && performance.now() - lastSurfaceTime <= SURFACE_FRESH_MS;
+    }
+
+    function updatePlacementButtons() {
+      placeNowButton.classList.toggle('available', canPlaceOnTable());
+      quickPlaceButton.classList.toggle('available', inAR && !placed && !canPlaceOnTable());
+    }
+
+    function updateSize() {
+      const scale = sizeSteps[sizeIndex];
+      if (inAR) solarSystem.scale.setScalar(scale);
+      // Outermost orbit is radius .83m before scaling, hence diameter 1.66m.
+      sizeValue.textContent = (1.66 * scale).toFixed(1) + ' m';
+      document.getElementById('smaller').disabled = sizeIndex === 0;
+      document.getElementById('bigger').disabled = sizeIndex === sizeSteps.length - 1;
+    }
+    document.getElementById('smaller').addEventListener('click', () => {
+      sizeIndex = Math.max(0, sizeIndex - 1); localStorage.setItem('solarExpoSizeIndex', String(sizeIndex)); updateSize();
+    });
+    document.getElementById('bigger').addEventListener('click', () => {
+      sizeIndex = Math.min(sizeSteps.length - 1, sizeIndex + 1); localStorage.setItem('solarExpoSizeIndex', String(sizeIndex)); updateSize();
+    });
+    function updateMotion() {
+      motionButton.textContent = orbitsRunning ? 'Ⅱ Pause orbits' : '▶ Start orbits';
+    }
+    motionButton.addEventListener('click', () => { orbitsRunning = !orbitsRunning; localStorage.setItem('solarExpoOrbits', orbitsRunning ? 'on' : 'off'); updateMotion(); });
+    updateSize();
+    updateMotion();
+
+    // Prevent buttons in the AR DOM overlay from also firing the XR select event.
+    for (const el of [document.getElementById('reset'), placeNowButton,
+      quickPlaceButton, document.getElementById('ar-tools')]) {
+      el.addEventListener('beforexrselect', event => event.preventDefault());
+    }
+
+    function releaseAnchor() {
+      if (activeAnchor) {
+        try { activeAnchor.delete(); } catch (e) { /* session already ended */ }
+      }
+      activeAnchor = null;
+      lastAnchorPoseTime = 0;
+      trackingJumpDetected = false;
+    }
+
+    function placeSystemAt(position, approximate = false) {
+      if (!inAR || placed) return false;
+      // Fixed world-space placement; not parented to the camera or reticle.
+      placementRoot.position.copy(position);
+      placementRoot.position.y += TABLE_OFFSET_M;
+      placementRoot.quaternion.identity();
+      solarSystem.position.set(0, 0, 0);
+      solarSystem.visible = true;
+      placed = true;
+      pendingPlacement = false;
+      document.body.classList.add('placed');
+      reticle.visible = false;
+      updateSize();
+      updatePlacementButtons();
+      setGuide(approximate ? 'approx' : 'placed-waiting-anchor', approximate
+        ? 'Approximate floating placement: this is <strong>not attached to a detected table</strong>. Use Place Again to retry accurate placement.'
+        : 'Placed on the table. Keeping the Solar System still while checking for an AR anchor. Use + / − to resize.');
+      return true;
+    }
+
+    function tryCreateAnchor(frame, hit, position, referenceSpace, generation) {
+      // Optional WebXR Anchors feature: supported browsers can keep a stable
+      // spatial anchor as ARCore refines tracking. Fallback remains world-fixed.
+      let promise = null;
+      try {
+        if (hit && typeof hit.createAnchor === 'function') {
+          promise = hit.createAnchor();
+        } else if (typeof frame.createAnchor === 'function' && referenceSpace &&
+                   typeof XRRigidTransform !== 'undefined') {
+          const transform = new XRRigidTransform({ x: position.x, y: position.y, z: position.z });
+          promise = frame.createAnchor(transform, referenceSpace);
+        }
+      } catch (error) {
+        console.warn('AR anchor unavailable:', error);
+      }
+      if (!promise) {
+        setGuide('placed-no-anchor', 'Placed at a fixed world position. Your browser did not provide an AR anchor; keep the table visible and use Place Again if tracking drifts.');
+        return;
+      }
+      Promise.resolve(promise).then(anchor => {
+        if (!inAR || !placed || placementGeneration !== generation) {
+          try { anchor.delete(); } catch (e) {}
+          return;
+        }
+        releaseAnchor();
+        activeAnchor = anchor;
+        lastAnchorPoseTime = performance.now();
+        setGuide('anchored', '✓ <strong>TABLE ANCHORED</strong>. The Solar System is fixed to the detected surface. Use + / − for size, or start the orbits.');
+      }).catch(error => {
+        console.warn('Anchor creation failed:', error);
+        if (inAR && placed && placementGeneration === generation) {
+          setGuide('placed-no-anchor', 'Placed at a fixed world position. AR anchoring was unavailable; keep the table in view. Tap Place Again if the model drifts.');
+        }
+      });
+    }
+
+    function requestTablePlacement() {
+      if (!canPlaceOnTable()) return;
+      pendingPlacement = true;
+      setGuide('placing', 'Hold your phone steady for a moment while the Solar System is placed.');
+    }
+    placeNowButton.addEventListener('click', requestTablePlacement);
+
+    quickPlaceButton.addEventListener('click', () => {
+      if (!inAR || placed || canPlaceOnTable()) return;
+      const xrCamera = renderer.xr.getCamera(camera);
+      const position = new THREE.Vector3();
+      const direction = new THREE.Vector3();
+      xrCamera.getWorldPosition(position);
+      xrCamera.getWorldDirection(direction);
+      position.addScaledVector(direction, 1.25);
+      position.y -= .18;
+      placementGeneration++;
+      placeSystemAt(position, true);
+    });
+
+    const arButton = ARButton.createButton(renderer, {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay', 'anchors'],
+      domOverlay: { root: document.body }
+    });
+    document.body.appendChild(arButton);
+    arButton.style.zIndex = '12';
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      arButton.style.display = 'none';
+      support.textContent = 'iPhone detected: tap IPHONE + ANDROID CAMERA AR above to use the printed HIRO marker.';
+    } else if (navigator.xr) {
+      navigator.xr.isSessionSupported('immersive-ar').then(ok => {
+        support.textContent = ok ? 'AR available: tap START AR to begin.' : 'AR unavailable here. You can still explore the 3D preview.';
+      }).catch(() => { support.textContent = 'AR support could not be checked. Preview is still available.'; });
+    } else {
+      support.textContent = 'AR is not supported in this browser. Preview is available.';
+    }
+
+    function resetPlacement() {
+      placementGeneration++;
+      releaseAnchor();
+      placed = false;
+      pendingPlacement = false;
+      solarSystem.visible = false;
+      reticle.visible = false;
+      lastSurfaceTime = -Infinity;
+      scanStartTime = performance.now();
+      document.body.classList.remove('placed');
+      updatePlacementButtons();
+      setGuide('scanning-again', 'Scan a patterned table, or use Quick Place immediately. For returning to the same physical spot, use Printed-Marker AR.');
+    }
+    document.getElementById('reset').addEventListener('click', resetPlacement);
+
+    renderer.xr.addEventListener('sessionstart', () => {
+      inAR = true;
+      placed = false;
+      pendingPlacement = false;
+      placementGeneration++;
+      releaseAnchor();
+      hitTestSource = null;
+      hitTestRequested = false;
+      lastSurfaceTime = -Infinity;
+      scanStartTime = performance.now();
+      lastGuideState = '';
+      orbitsRunning = localStorage.getItem('solarExpoOrbits') === 'on';
+      updateMotion();
+      document.body.classList.add('in-ar');
+      document.body.classList.remove('placed');
+      scene.background = null;
+      stars.visible = false;
+      solarSystem.visible = false;
+      controls.enabled = false;
+      updateSize();
+      updatePlacementButtons();
+      setGuide('scanning', 'Scan a patterned table if possible, or use Quick Place immediately (floating, not table-anchored). For reliable return visits use Printed-Marker AR.');
+    });
+
+    renderer.xr.addEventListener('sessionend', () => {
+      inAR = false;
+      placed = false;
+      pendingPlacement = false;
+      placementGeneration++;
+      releaseAnchor();
+      if (hitTestSource) hitTestSource.cancel();
+      hitTestSource = null;
+      hitTestRequested = false;
+      reticle.visible = false;
+      lastSurfaceTime = -Infinity;
+      document.body.classList.remove('in-ar', 'placed');
+      updatePlacementButtons();
+      scene.background = new THREE.Color(0x03091a);
+      stars.visible = true;
+      solarSystem.visible = true;
+      placementRoot.position.set(0, 0, 0);
+      placementRoot.quaternion.identity();
+      solarSystem.scale.setScalar(1);
+      controls.enabled = true;
+      orbitsRunning = true;
+      updateMotion();
+      lastGuideState = '';
+      setGuide('preview', 'Drag to explore the 3D preview. On a compatible Android phone, tap <strong>START AR</strong> below.<span id="support">WebXR session ended.</span>');
+    });
+
+    const controller = renderer.xr.getController(0);
+    controller.addEventListener('select', requestTablePlacement);
+    scene.add(controller);
+
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop((_, frame) => {
+      const dt = Math.min(clock.getDelta(), .05);
+      if (orbitsRunning) {
+        belt.rotation.y += dt*.015;
+        for (const o of orbiters) {
+          o.pivot.rotation.y += dt * o.speed;
+          o.mesh.rotation.y += dt * .18;
+        }
+        sun.rotation.y += dt * .05;
+      }
+      if (!inAR) controls.update();
+
+      if (inAR && frame) {
+        const session = renderer.xr.getSession();
+        if (!hitTestRequested && session) {
+          hitTestRequested = true;
+          session.requestReferenceSpace('viewer').then(viewerSpace =>
+            session.requestHitTestSource({ space: viewerSpace })
+          ).then(source => { hitTestSource = source; })
+          .catch(error => {
+            hitTestRequested = false;
+            setGuide('hit-error', 'Could not start table detection: ' + error.message);
+          });
+        }
+
+        const referenceSpace = renderer.xr.getReferenceSpace();
+        if (hitTestSource && !placed && referenceSpace) {
+          const hits = frame.getHitTestResults(hitTestSource);
+          let liveHit = null;
+          if (hits.length) {
+            const pose = hits[0].getPose(referenceSpace);
+            if (pose) {
+              liveHit = hits[0];
+              lastSurfaceMatrix.fromArray(pose.transform.matrix);
+              lastSurfaceTime = performance.now();
+              reticle.matrix.copy(lastSurfaceMatrix);
+              reticle.visible = true;
+              setGuide('surface-found', '✓ <strong>TABLE FOUND!</strong> Tap the table or press PLACE ON TABLE now.');
+            }
+          }
+
+          if (pendingPlacement && canPlaceOnTable()) {
+            // Use the latest position. An anchor is created in this XR frame
+            // from the live hit (or frame.createAnchor where supported).
+            const position = new THREE.Vector3().setFromMatrixPosition(lastSurfaceMatrix);
+            const generation = ++placementGeneration;
+            if (placeSystemAt(position, false)) {
+              tryCreateAnchor(frame, liveHit, position, referenceSpace, generation);
+            }
+          } else if (!canPlaceOnTable()) {
+            reticle.visible = false;
+            pendingPlacement = false;
+            const elapsed = performance.now() - scanStartTime;
+            if (elapsed > QUICK_PLACE_AFTER_MS) {
+              setGuide('scan-slow', 'No table detected. Quick Place creates a floating demo; printed-marker AR is better for repeatable placement.');
+            } else {
+              setGuide('scanning', 'Scan a textured table, or use Quick Place immediately for a floating demo.');
+            }
+          }
+        }
+
+        if (placed && activeAnchor && referenceSpace) {
+          // Follow the anchor (not the camera). Smooth minor corrections.
+          // Freeze rather than teleport when tracking jumps dramatically.
+          const pose = frame.getPose(activeAnchor.anchorSpace, referenceSpace);
+          if (pose) {
+            anchorTarget.set(pose.transform.position.x,
+                             pose.transform.position.y + TABLE_OFFSET_M,
+                             pose.transform.position.z);
+            const distance = placementRoot.position.distanceTo(anchorTarget);
+            if (distance > 0.40) {
+              if (!trackingJumpDetected) {
+                trackingJumpDetected = true;
+                setGuide('tracking-jump', 'Tracking shifted significantly, so the model is frozen instead of jumping. Keep the table visible, or use Place Again.');
+              }
+            } else {
+              trackingJumpDetected = false;
+              placementRoot.position.lerp(anchorTarget, Math.min(1, dt * 7));
+              lastAnchorPoseTime = performance.now();
+              setGuide('anchored', '✓ <strong>TABLE ANCHORED</strong>. Use + / − to resize. Orbits are paused by default; tap Start orbits to animate.');
+            }
+          } else if (performance.now() - lastAnchorPoseTime > 1200) {
+            setGuide('tracking-lost', 'Tracking temporarily lost. The Solar System is frozen; keep the table visible or tap Place Again.');
+          }
+        }
+        updatePlacementButtons();
+      }
+      renderer.render(scene, camera);
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>

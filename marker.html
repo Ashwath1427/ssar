@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#041329">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Solar System | iPhone & Android HIRO Camera AR</title>
+<style>
+* {box-sizing:border-box}
+html,body {margin:0;width:100%;height:100%;overflow:hidden;background:#051225;color:#f4faff;font-family:system-ui,-apple-system,sans-serif}
+button,a {font:inherit}
+#scene-mount, a-scene {position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}
+/* AR.js creates a separate camera video. Keep it in FRONT of the body background,
+   but BEHIND the transparent A-Frame canvas and the clickable interface. */
+#scene-mount {z-index:2!important;background:transparent!important;pointer-events:none!important}
+#scene-mount a-scene, #scene-mount canvas {background:transparent!important;pointer-events:none!important}
+#arjs-video {position:fixed!important;z-index:1!important;pointer-events:none!important;visibility:visible!important;opacity:1!important}
+/* Backup for older A-Frame releases: the marker does not need a motion sensor
+   permission popup, and the popup can trap all taps on iPhone. */
+.a-dialog, .a-dialog-container, .a-dialog-text,
+.a-dialog-allow-button, .a-dialog-deny-button, .a-orientation-modal {display:none!important}
+#hud {position:fixed;z-index:100002;top:0;left:0;right:0;pointer-events:none}
+#header {padding:max(12px,env(safe-area-inset-top)) 12px 10px;background:linear-gradient(180deg,rgba(2,10,25,.96),rgba(2,10,25,.55) 75%,transparent)}
+.eyebrow {color:#67e6f3;letter-spacing:.15em;font-size:10px;font-weight:850}
+h1 {font-size:18px;line-height:1.2;margin:4px 0 7px}
+#status {border:1px solid #426d8a;background:rgba(4,19,38,.9);border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.35;max-width:580px}
+#status.found {border-color:#50e5a5;color:#d1ffe9}
+#status.wait {border-color:#f3c466;color:#ffe6b0}
+#links {display:flex;flex-wrap:wrap;gap:7px;margin-top:7px;pointer-events:auto}
+#links a, #links button {border:1px solid #4d8ea8;border-radius:9px;padding:7px 10px;background:rgba(7,37,59,.94);color:#d5faff;text-decoration:none;font-size:11px;font-weight:750;cursor:pointer}
+#links a:first-child {background:#1ed7e4;color:#002531;border-color:transparent}
+#gesture-surface {position:fixed;z-index:100000;left:0;right:0;top:138px;bottom:151px;touch-action:none;display:none}
+body.started.has-marker #gesture-surface {display:block;pointer-events:auto}
+#gesture-tip {position:fixed;z-index:100001;bottom:calc(140px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);font-size:11px;text-align:center;color:#d5f6ff;background:rgba(4,19,37,.8);padding:6px 10px;border-radius:999px;white-space:nowrap;pointer-events:none;display:none}
+body.started.has-marker #gesture-tip {display:block}
+#tools {position:fixed;z-index:100003;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));display:none;flex-direction:column;gap:7px;padding:9px;border:1px solid #39738f;border-radius:14px;background:rgba(2,16,34,.94)}
+body.started #tools {display:flex}
+.tool-row {display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:nowrap}
+#tools button {border:1px solid #4e9ab4;background:#123b58;color:white;border-radius:9px;min-height:39px;padding:8px 9px;font-size:12px;font-weight:800;cursor:pointer;touch-action:manipulation}
+#tools button:disabled {opacity:.4}
+#tools .primary {background:#0b6173;border-color:#52ddea}
+#size {min-width:56px;font-size:11px;text-align:center;font-weight:800}
+#start-overlay {position:fixed;inset:0;z-index:100010;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:radial-gradient(circle at 50% 20%,#154267,#041024 70%)}
+#start-overlay.hidden {display:none}
+#start-card {width:min(100%,450px);padding:24px 20px;border:1px solid #4c91b2;border-radius:20px;background:rgba(3,20,41,.97);text-align:center;box-shadow:0 22px 65px #0008}
+#start-card h2 {font-size:23px;margin:9px 0}
+#start-card p {color:#bfd5e8;font-size:14px;line-height:1.5}
+#start-camera {width:100%;border:0;border-radius:12px;padding:15px;background:#22d7e5;color:#002b37;font-weight:900;font-size:16px;cursor:pointer}
+#start-camera:disabled {opacity:.6}
+#resume-camera {display:none;border:1px solid #54d8f2;background:#0b516d;color:white;border-radius:9px;padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer}
+#resume-camera.visible {display:inline-block}
+#start-error {min-height:20px;font-size:12px;color:#ffb9b9;margin-top:10px}
+#start-card a {color:#82e6ff}
+@media(max-width:385px){h1{font-size:16px}#tools button{font-size:11px;padding:7px 7px}#size{min-width:47px}#gesture-surface{top:154px}#gesture-tip{font-size:10px}}
+</style>
+<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
+<script src="space-effects.js"></script>
+</head>
+<body>
+<div id="scene-mount"></div>
+<div id="hud"><div id="header">
+  <div class="eyebrow">SCIENCE EXPO · HIRO TRACKING · IOS + ANDROID</div>
+  <h1>Solar System — Touch & Place</h1>
+  <div id="status" role="status" aria-live="polite">Tap START CAMERA AR, then point at the full HIRO marker.</div>
+  <div id="links"><a href="print-marker.html" target="_blank" rel="noopener">Print HIRO</a><a href="index.html">3D / Android Table AR</a><button id="resume-camera" type="button">▶ Resume Camera</button><button id="restart" type="button">↻ Restart</button></div>
+</div></div>
+<div id="gesture-surface" aria-label="Touch here to move, pinch or rotate the Solar System"></div>
+<div id="gesture-tip">1 finger: move · 2 fingers: pinch / rotate</div>
+<div id="tools" aria-label="Solar System touch controls">
+  <div class="tool-row"><button id="smaller" aria-label="Make smaller">−</button><span id="size">100%</span><button id="bigger" aria-label="Make larger">+</button><button id="motion">▶ Orbits</button><button id="lock" class="primary">🔓 Edit</button></div>
+  <div class="tool-row"><button id="up">↑ Raise</button><button id="down">↓ Lower</button><button id="left">↶ Rotate</button><button id="right">Rotate ↷</button><button id="reset">Reset</button></div>
+</div>
+<div id="start-overlay" role="dialog" aria-label="Start camera AR"><div id="start-card">
+  <div style="font-size:43px">☀️</div><div class="eyebrow">IPHONE SAFARI + ANDROID CHROME</div>
+  <h2>Place Your Solar System</h2>
+  <p>Use Safari on iPhone or Chrome on Android. Point at a printed HIRO marker: the Solar System appears automatically. Drag to move, pinch to resize, twist to rotate, then lock your adjustments.</p>
+  <button id="start-camera" type="button">START CAMERA AR</button><div id="start-error" role="alert"></div>
+  <p>On iPhone, open directly in <strong>Safari</strong>, allow <strong>Camera</strong> access, and keep the entire HIRO marker in view. Motion sensor permission is not needed. Works on HTTPS.</p>
+  <p><a href="print-marker.html">Print the marker</a> · <a href="index.html">3D preview</a></p>
+</div></div>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const status = $('status');
+  const overlay = $('start-overlay');
+  const startButton = $('start-camera');
+  let scene = null, marker = null, anchor = null;
+  let solarSystem = null, layoutRoot = null, orbiters = [], sun = null;
+  let lastTime = 0, markerVisible = false, everFound = false, trackingStarted = false;
+  let lastSeenAt = -Infinity, lastTrackingMessage = '';
+  let cameraReady = false, startingCamera = false;
+  let orbitsRunning = false, adjustmentsLocked = false;
+  const HOLD_MS = 1300; // Visual grace period ONLY, not a real world anchor.
+  const STORE_KEY = 'solarExpoMarkerLayoutV3';
+  const THREE_GESTURE_LIMIT = .15;
+  const defaultLayout = () => ({x:0,y:.06,z:0,scale:.72,yaw:0});
+  let layout = defaultLayout();
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    for (const k of Object.keys(layout)) if (Number.isFinite(data[k])) layout[k] = data[k];
+    layout.x = Math.max(-1.5, Math.min(1.5,layout.x));
+    layout.y = Math.max(-.3, Math.min(1.5,layout.y));
+    layout.z = Math.max(-1.5, Math.min(1.5,layout.z));
+    layout.scale = Math.max(.3, Math.min(3,layout.scale));
+    layout.yaw = ((layout.yaw % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+    orbitsRunning = localStorage.getItem('solarExpoOrbitsV3') === 'on';
+  } catch (_) { /* Private browsing may block storage. */ }
+  function persist() {
+    try {localStorage.setItem(STORE_KEY, JSON.stringify(layout));localStorage.setItem('solarExpoOrbitsV3',orbitsRunning?'on':'off');}catch(_){}
+  }
+  function setStatus(message, kind) {
+    if (message === lastTrackingMessage) return;
+    lastTrackingMessage = message;
+    status.textContent = message;
+    status.className = kind || '';
+  }
+  function applyLayout() {
+    if (layoutRoot) {
+      layoutRoot.position.set(layout.x,layout.y,layout.z);
+      layoutRoot.rotation.y = layout.yaw;
+    }
+    if (solarSystem) solarSystem.scale.setScalar(layout.scale);
+    $('size').textContent = Math.round(layout.scale*100)+'%';
+    $('motion').textContent = orbitsRunning ? 'Ⅱ Pause' : '▶ Orbits';
+    $('lock').textContent = adjustmentsLocked ? '🔒 Locked' : '🔓 Edit';
+    $('gesture-tip').textContent = adjustmentsLocked ? 'Layout locked · Tap Edit to adjust' : '1 finger: move · 2 fingers: pinch / rotate';
+  }
+  function modify(fn) { if(adjustmentsLocked) return; fn(); applyLayout(); persist(); }
+  $('smaller').onclick=()=>modify(()=>layout.scale=Math.max(.3,layout.scale/1.2));
+  $('bigger').onclick=()=>modify(()=>layout.scale=Math.min(3,layout.scale*1.2));
+  $('up').onclick=()=>modify(()=>layout.y=Math.min(1.5,layout.y+.035));
+  $('down').onclick=()=>modify(()=>layout.y=Math.max(-.3,layout.y-.035));
+  $('left').onclick=()=>modify(()=>layout.yaw-=Math.PI/12);
+  $('right').onclick=()=>modify(()=>layout.yaw+=Math.PI/12);
+  $('reset').onclick=()=>modify(()=>Object.assign(layout,defaultLayout()));
+  $('motion').onclick=()=>{orbitsRunning=!orbitsRunning;applyLayout();persist();};
+  $('lock').onclick=()=>{adjustmentsLocked=!adjustmentsLocked;applyLayout();};
+  $('restart').onclick=()=>location.reload();
+  $('resume-camera').onclick=()=>resumeCamera();
+  applyLayout();
+
+  // Drag moves the model relative to the paper; two-finger pinch/rotation
+  // adjusts scale/yaw. Layout is saved on this browser for the same marker.
+  const gestureSurface=$('gesture-surface');
+  let gesture=null;
+  function touchInfo(touches) {
+    if (touches.length===1) return {n:1,x:touches[0].clientX,y:touches[0].clientY};
+    if (touches.length>=2) {
+      const a=touches[0], b=touches[1];
+      return {n:2,x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2,
+        dist:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),
+        angle:Math.atan2(b.clientY-a.clientY,b.clientX-a.clientX)};
+    }
+    return null;
+  }
+  function projectMarkerAxis(dx,dz) {
+    if (!anchor || !scene || !scene.camera) return null;
+    const three=AFRAME.THREE;
+    anchor.object3D.updateMatrixWorld(true);
+    const origin=anchor.object3D.localToWorld(new three.Vector3(0,0,0)).project(scene.camera);
+    const end=anchor.object3D.localToWorld(new three.Vector3(dx,0,dz)).project(scene.camera);
+    return {x:(end.x-origin.x)*innerWidth/2,y:(origin.y-end.y)*innerHeight/2};
+  }
+  function screenDrag(dx,dy) {
+    const ux=projectMarkerAxis(1,0), uz=projectMarkerAxis(0,1);
+    if(ux && uz) {
+      const det=ux.x*uz.y-ux.y*uz.x;
+      if(Number.isFinite(det) && Math.abs(det)>80) {
+        layout.x+=Math.max(-THREE_GESTURE_LIMIT,Math.min(THREE_GESTURE_LIMIT,(dx*uz.y-dy*uz.x)/det));
+        layout.z+=Math.max(-THREE_GESTURE_LIMIT,Math.min(THREE_GESTURE_LIMIT,(dy*ux.x-dx*ux.y)/det));
+        return;
+      }
+    }
+    layout.x+=dx/innerWidth*.8;
+    layout.z+=dy/innerHeight*.8;
+  }
+  gestureSurface.addEventListener('touchstart',e=>{
+    if(!everFound || adjustmentsLocked) return;
+    e.preventDefault(); gesture=touchInfo(e.touches);
+  },{passive:false});
+  gestureSurface.addEventListener('touchmove',e=>{
+    if(!gesture || adjustmentsLocked) return;
+    e.preventDefault();
+    const next=touchInfo(e.touches);
+    if(!next) return;
+    if(next.n!==gesture.n){gesture=next;return;}
+    if(next.n===1){screenDrag(next.x-gesture.x,next.y-gesture.y);}
+    else if(next.n===2){
+      if(gesture.dist>4) layout.scale=Math.max(.3,Math.min(3,layout.scale*(next.dist/gesture.dist)));
+      let angle=next.angle-gesture.angle;
+      if(angle>Math.PI) angle-=Math.PI*2;
+      if(angle< -Math.PI) angle+=Math.PI*2;
+      layout.yaw+=angle;
+    }
+    layout.x=Math.max(-1.5,Math.min(1.5,layout.x));
+    layout.z=Math.max(-1.5,Math.min(1.5,layout.z));
+    gesture=next;applyLayout();
+  },{passive:false});
+  gestureSurface.addEventListener('touchend',e=>{
+    if(gesture){persist();gesture=touchInfo(e.touches);}
+  },{passive:false});
+  gestureSurface.addEventListener('touchcancel',()=>{gesture=null;persist();},{passive:false});
+
+  function enableInlineVideo() {
+    document.querySelectorAll('video').forEach(video=>{
+      video.setAttribute('playsinline','');
+      video.setAttribute('webkit-playsinline','');
+      video.setAttribute('autoplay','');
+      video.setAttribute('muted','');
+      video.playsInline=true;
+      video.muted=true;
+      video.autoplay=true;
+    });
+  }
+  // iOS Safari requires inline video and may pause a camera feed when switching tabs.
+  new MutationObserver(enableInlineVideo).observe(document.body,{childList:true,subtree:true});
+  function showResume(show) { $('resume-camera').classList.toggle('visible', !!show); }
+  function resumeCamera() {
+    enableInlineVideo();
+    const video=document.getElementById('arjs-video') || document.querySelector('video');
+    if (!video) {
+      setStatus('No camera video found. Tap Restart and allow camera access.','wait');
+      return;
+    }
+    const attempt=video.play();
+    if(attempt && typeof attempt.then==='function') {
+      attempt.then(()=>{
+        cameraReady=true;showResume(false);
+        if(!everFound) setStatus('Camera running. Hold the full HIRO marker in view.','wait');
+      }).catch(()=>{
+        showResume(true);
+        setStatus('Camera playback is paused. Tap Resume Camera or Restart.','wait');
+      });
+    }
+  }
+  window.addEventListener('arjs-video-loaded',()=>{
+    cameraReady=true;enableInlineVideo();
+    const video=document.getElementById('arjs-video') || document.querySelector('video');
+    if(video && video.paused) {
+      showResume(true);
+      setStatus('Camera paused. Tap Resume Camera to continue, then scan HIRO.','wait');
+    } else if(!everFound) {
+      setStatus('Camera ready. Point at the FULL printed HIRO marker.','wait');
+    }
+  });
+  window.addEventListener('camera-init',()=>{
+    cameraReady=true;
+    if(!everFound) setStatus('Camera active. Searching for HIRO marker…','wait');
+  });
+  window.addEventListener('camera-error',e=>{
+    showResume(true);
+    const message=e?.detail?.error?.message || e?.detail?.error?.name || 'camera unavailable';
+    setStatus('Camera error: '+message+'. In iPhone Safari, allow Camera for this website, then Restart.','wait');
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden && startingCamera) {
+      enableInlineVideo();
+      const video=document.querySelector('video');
+      if(video && video.paused) showResume(true);
+    }
+  });
+  function startCameraAR() {
+    if(startingCamera) return;
+    if(!window.isSecureContext) {
+      $('start-error').textContent='Use your HTTPS GitHub Pages link, not a local file.';return;
+    }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('start-error').textContent='Camera unavailable. Open this HTTPS website directly in Safari on iPhone or Chrome on Android.';return;
+    }
+    if(!window.AFRAME || !AFRAME.THREE) {
+      $('start-error').textContent='AR libraries did not load. Check internet access and reload.';return;
+    }
+    // AR.js requests the camera itself. Do not open and close a second stream first:
+    // Safari can leave the camera black when two requests happen back-to-back.
+    startingCamera=true;
+    startButton.disabled=true;
+    startButton.textContent='STARTING CAMERA…';
+    overlay.classList.add('hidden');
+    document.body.classList.add('started');
+    setStatus('Starting iPhone / Android camera. Allow CAMERA access if Safari asks…','wait');
+    const mount=$('scene-mount');
+    mount.innerHTML=`<a-scene embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" background="transparent: true" renderer="antialias: false; alpha: true; precision: mediump" arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; sourceWidth: 640; sourceHeight: 480; displayWidth: 640; displayHeight: 480;">
+      <a-marker id="hiro-marker" preset="hiro" emitevents="true" smooth="true" smooth-count="8" smooth-tolerance="0.01" smooth-threshold="3"></a-marker>
+      <a-entity id="stable-anchor" visible="false"></a-entity>
+      <a-entity camera look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
+    </a-scene>`;
+    scene=mount.querySelector('a-scene');marker=$('hiro-marker');anchor=$('stable-anchor');
+    marker.addEventListener('markerFound',()=>{
+      markerVisible=true;everFound=true;
+      document.body.classList.add('has-marker');
+      setStatus('✓ HIRO detected! Drag to move, pinch to resize, twist to rotate. Keep the marker visible for accurate alignment.','found');
+    });
+    marker.addEventListener('markerLost',()=>{
+      markerVisible=false;
+      document.body.classList.remove('has-marker');
+      setStatus('Tracking briefly lost. Keep the full HIRO marker visible…','wait');
+    });
+    if(scene.hasLoaded) initialize();else scene.addEventListener('loaded',initialize,{once:true});
+    setTimeout(()=>{
+      const video=document.querySelector('video');
+      if(!video || video.readyState<2) {
+        showResume(true);
+        setStatus('Camera not displaying. Tap Resume Camera or Restart. On iPhone check Safari camera permission.','wait');
+      } else if(!everFound) {
+        setStatus('Camera is running. Hold the full black-bordered HIRO marker steady in view.','wait');
+      }
+    },12000);
+  }
+  startButton.addEventListener('click',startCameraAR);
+  function initialize() {
+    if(solarSystem || !marker || !anchor) return;
+    const THREE=AFRAME.THREE;
+    solarSystem=new THREE.Group();
+    layoutRoot=new THREE.Group();
+    anchor.object3D.add(layoutRoot);
+    layoutRoot.add(solarSystem);
+    const ambient=new THREE.AmbientLight(0xffffff,1.5);solarSystem.add(ambient);
+    const sunLight=new THREE.PointLight(0xffe6ad,3,4);sunLight.position.set(0,.12,0);solarSystem.add(sunLight);
+    const belt=SpaceEffects.asteroidBelt(THREE,{inner:.385,outer:.425,count:320,rockSize:.0032,height:.12});solarSystem.add(belt);
+    const modelStars=SpaceEffects.starField(THREE,{count:110,radius:1.0,spread:.55,size:2,opacity:.72});modelStars.position.y=.12;solarSystem.add(modelStars);
+    const sphereGeometry = new THREE.SphereGeometry(1, 24, 16);
+    orbiters = [];
+
+    // All planet textures are generated in the browser: no images or assets required.
+    // To reuse Unity planet images later, replace the materials' maps with TextureLoader images.
+    function planetTexture(colors, seed, stripes = false, earth = false) {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 128;
+      const ctx = c.getContext('2d');
+      let s = seed >>> 0;
+      const rnd = () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+      const hex = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+      const palette = colors.map(hex);
+      const img = ctx.createImageData(c.width, c.height);
+      for (let y = 0; y < c.height; y++) {
+        const lat = y / c.height;
+        for (let x = 0; x < c.width; x++) {
+          const i = (y * c.width + x) * 4;
+          const wave = Math.sin(y * (stripes ? .25 : .065) + Math.sin(x * .024) * (stripes ? 1.7 : 4.5));
+          const v = stripes ? Math.floor((wave + 1) / 2 * palette.length) : Math.floor(rnd() * palette.length);
+          const color = palette[Math.min(palette.length - 1, v)];
+          const shade = .84 + rnd() * .28;
+          img.data[i] = color[0] * shade;
+          img.data[i+1] = color[1] * shade;
+          img.data[i+2] = color[2] * shade;
+          img.data[i+3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      if (earth) {
+        ctx.fillStyle = '#4e9c6c';
+        for (let i = 0; i < 65; i++) {
+          const x = rnd() * 256, y = 12 + rnd() * 103;
+          const w = 6 + rnd() * 11, h = 2 + rnd() * 7;
+          ctx.beginPath(); ctx.ellipse(x, y, w, h, rnd() * Math.PI, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(245,250,255,.7)';
+        ctx.fillRect(0, 0, 256, 5); ctx.fillRect(0, 123, 256, 5);
+      }
+      const texture = new THREE.CanvasTexture(c);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    }
+
+    function ball(radius, colors, seed, options = {}) {
+      const mat = new THREE.MeshStandardMaterial({
+        map: planetTexture(colors, seed, !!options.stripes, !!options.earth),
+        roughness: 1,
+        metalness: 0,
+        emissive: options.glow ? new THREE.Color(0xff7b12) : new THREE.Color(0x000000),
+        emissiveIntensity: options.glow ? 1.5 : 0
+      });
+      const m = new THREE.Mesh(sphereGeometry, mat);
+      m.scale.setScalar(radius);
+      return m;
+    }
+
+    sun = ball(.094, ['#ffb222', '#ffdc53', '#ff7d12', '#fff2a0'], 1, { glow: true });
+    sun.position.y = .12;
+    solarSystem.add(sun);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(.115, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffa526, transparent: true, opacity: .09, depthWrite: false }));
+    glow.position.copy(sun.position);
+    solarSystem.add(glow);
+
+    const planets = [
+      { name: 'Mercury', r: .014, d: .16, speed: .19, colors: ['#74716c','#aba49a','#5d5b59'], seed: 2 },
+      { name: 'Venus', r: .024, d: .22, speed: .14, colors: ['#cfab69','#f2d49a','#9f784e'], seed: 3 },
+      { name: 'Earth', r: .026, d: .29, speed: .115, colors: ['#12509d','#1676c3','#073c75'], seed: 4, earth: true },
+      { name: 'Mars', r: .020, d: .36, speed: .092, colors: ['#b74f28','#da7847','#6f2c20'], seed: 5 },
+      { name: 'Jupiter', r: .063, d: .47, speed: .058, colors: ['#a76d50','#d9b48e','#e6d5b9','#8d5943'], seed: 6, stripes: true },
+      { name: 'Saturn', r: .052, d: .60, speed: .045, colors: ['#c7a16b','#ead6a5','#9f8055'], seed: 7, stripes: true },
+      { name: 'Uranus', r: .036, d: .72, speed: .032, colors: ['#71c8d2','#a2e2e5','#64aebf'], seed: 8 },
+      { name: 'Neptune', r: .034, d: .83, speed: .024, colors: ['#194fa6','#286cc8','#153e81'], seed: 9 }
+    ];
+
+    function orbitCircle(radius) {
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(radius - .0011, radius + .0011, 72),
+        new THREE.MeshBasicMaterial({ color: 0x83b3e9, side: THREE.DoubleSide, transparent: true, opacity: .27, depthWrite: false })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = .12;
+      solarSystem.add(mesh);
+    }
+
+    for (let i = 0; i < planets.length; i++) {
+      const p = planets[i];
+      orbitCircle(p.d);
+      const pivot = new THREE.Group();
+      pivot.position.y = .12;
+      pivot.rotation.y = i * 1.75;
+      const mesh = ball(p.r, p.colors, p.seed, p);
+      mesh.position.x = p.d;
+      pivot.add(mesh);
+      solarSystem.add(pivot);
+      orbiters.push({ pivot, mesh, speed: p.speed });
+
+      if (p.name === 'Saturn') {
+        const ringSystem = new THREE.Group();
+        ringSystem.position.x = p.d;
+        pivot.add(ringSystem);
+        const ringColors = [0x92775e, 0xe0c9a4, 0x897361];
+        for (let j = 0; j < 3; j++) {
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(.067 + j * .011, .076 + j * .011, 64),
+            new THREE.MeshBasicMaterial({ color: ringColors[j], side: THREE.DoubleSide, transparent: true, opacity: .78 })
+          );
+          ring.rotation.x = -.95;
+          ring.rotation.y = .35;
+          ringSystem.add(ring);
+        }
+      }
+      if (p.name === 'Earth') {
+        const moonPivot = new THREE.Group();
+        moonPivot.position.x = p.d;
+        pivot.add(moonPivot);
+        const moon = ball(.009, ['#bbbdbf','#777e84','#dadcde'], 11);
+        moon.position.set(.042, .012, 0);
+        moonPivot.add(moon);
+        orbiters.push({ pivot: moonPivot, mesh: moon, speed: .36 });
+      }
+    }
+
+
+
+    applyLayout();
+    const targetPos=new THREE.Vector3(),targetQuat=new THREE.Quaternion(),targetScale=new THREE.Vector3();
+    let havePose=false;
+    function tick(t) {
+      const dt=lastTime?Math.min((t-lastTime)/1000,.05):0;
+      lastTime=t;
+      // Tracking controls the anchor; planet orbiting NEVER changes its pose.
+      if(markerVisible && marker.object3D.visible) {
+        marker.object3D.updateMatrixWorld(true);
+        marker.object3D.matrixWorld.decompose(targetPos,targetQuat,targetScale);
+        const p=anchor.object3D;
+        if(!havePose || t-lastSeenAt>HOLD_MS) {
+          p.position.copy(targetPos);p.quaternion.copy(targetQuat);havePose=true;
+        } else {
+          const delta=p.position.distanceTo(targetPos);
+          const alpha=delta>.18 ? .38 : .16;
+          p.position.lerp(targetPos,alpha);
+          p.quaternion.slerp(targetQuat,.18);
+        }
+        p.visible=true;
+        lastSeenAt=t;
+      } else if(havePose) {
+        const missingFor=t-lastSeenAt;
+        if(missingFor<HOLD_MS) {
+          anchor.object3D.visible=true; // Only a short visual hold; not a world anchor.
+        } else {
+          anchor.object3D.visible=false;
+          setStatus('HIRO is out of view. Point at the SAME marker again to restore the saved layout.','wait');
+        }
+      }
+      if(orbitsRunning && anchor.object3D.visible) {
+        belt.rotation.y+=dt*.015;
+        for(const o of orbiters){o.pivot.rotation.y+=dt*o.speed;o.mesh.rotation.y+=dt*.18;}
+        if(sun) sun.rotation.y+=dt*.05;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+})();
+</script>
+</body>
+</html>
