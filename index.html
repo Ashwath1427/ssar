@@ -85,7 +85,7 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.enablePan = false;
-    controls.minDistance = 1.0;
+    controls.minDistance = 0.12;
     controls.maxDistance = 4.2;
     controls.target.set(0, 0.12, 0);
     controls.update();
@@ -259,7 +259,7 @@
     const quickPlaceButton = document.getElementById('quick-place');
     const sizeValue = document.getElementById('size-value');
     const motionButton = document.getElementById('motion');
-    const sizeSteps = [0.40, 0.55, 0.70, 0.85, 1.05, 1.25, 1.50];
+    const sizeSteps = [0.40, 0.55, 0.70, 0.85, 1.05, 1.25, 1.50, 2, 2.5, 3.2, 4, 5];
     const rememberedSize = Number(localStorage.getItem('solarExpoSizeIndex'));
     let sizeIndex = Number.isInteger(rememberedSize) && rememberedSize >= 0 && rememberedSize < sizeSteps.length ? rememberedSize : 3;
     let orbitsRunning = true;  // AR begins paused to make unwanted drift obvious.

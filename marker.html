@@ -105,7 +105,7 @@ body.started #tools {display:flex}
     layout.x = Math.max(-1.5, Math.min(1.5,layout.x));
     layout.y = Math.max(-.3, Math.min(1.5,layout.y));
     layout.z = Math.max(-1.5, Math.min(1.5,layout.z));
-    layout.scale = Math.max(.3, Math.min(3,layout.scale));
+    layout.scale = Math.max(.3, Math.min(10,layout.scale));
     layout.yaw = ((layout.yaw % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
     orbitsRunning = localStorage.getItem('solarExpoOrbitsV3') === 'on';
   } catch (_) { /* Private browsing may block storage. */ }
@@ -131,7 +131,7 @@ body.started #tools {display:flex}
   }
   function modify(fn) { if(adjustmentsLocked) return; fn(); applyLayout(); persist(); }
   $('smaller').onclick=()=>modify(()=>layout.scale=Math.max(.3,layout.scale/1.2));
-  $('bigger').onclick=()=>modify(()=>layout.scale=Math.min(3,layout.scale*1.2));
+  $('bigger').onclick=()=>modify(()=>layout.scale=Math.min(10,layout.scale*1.2));
   $('up').onclick=()=>modify(()=>layout.y=Math.min(1.5,layout.y+.035));
   $('down').onclick=()=>modify(()=>layout.y=Math.max(-.3,layout.y-.035));
   $('left').onclick=()=>modify(()=>layout.yaw-=Math.PI/12);
@@ -190,7 +190,7 @@ body.started #tools {display:flex}
     if(next.n!==gesture.n){gesture=next;return;}
     if(next.n===1){screenDrag(next.x-gesture.x,next.y-gesture.y);}
     else if(next.n===2){
-      if(gesture.dist>4) layout.scale=Math.max(.3,Math.min(3,layout.scale*(next.dist/gesture.dist)));
+      if(gesture.dist>4) layout.scale=Math.max(.3,Math.min(10,layout.scale*(next.dist/gesture.dist)));
       let angle=next.angle-gesture.angle;
       if(angle>Math.PI) angle-=Math.PI*2;
       if(angle< -Math.PI) angle+=Math.PI*2;
