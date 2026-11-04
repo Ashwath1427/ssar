@@ -57,7 +57,9 @@ body.started #tools {display:flex}
 </style>
 <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
-<script src="space-effects.js"></script>
+<link rel="stylesheet" href="planets.css">
+<style>body:not(.started) #planet-ui{display:none} body.started #planet-ui{top:150px;bottom:auto} @media(max-width:700px){body.started #planet-ui{top:auto;bottom:calc(130px + env(safe-area-inset-bottom))}body.started #planet-ui .planet-card{max-height:29vh}}</style>
+<script src="planets.js"></script><script src="space-effects.js"></script>
 </head>
 <body>
 <div id="scene-mount"></div>
@@ -68,7 +70,7 @@ body.started #tools {display:flex}
   <div id="links"><a href="print-marker.html" target="_blank" rel="noopener">Print HIRO</a><a href="index.html">3D / Android Table AR</a><button id="resume-camera" type="button">▶ Resume Camera</button><button id="restart" type="button">↻ Restart</button></div>
 </div></div>
 <div id="gesture-surface" aria-label="Touch here to move, pinch or rotate the Solar System"></div>
-<div id="gesture-tip">1 finger: move · 2 fingers: pinch / rotate</div>
+<div id="gesture-tip">Tap a planet · drag or pinch to adjust</div>
 <div id="tools" aria-label="Solar System touch controls">
   <div class="tool-row"><button id="smaller" aria-label="Make smaller">−</button><span id="size">100%</span><button id="bigger" aria-label="Make larger">+</button><button id="motion">▶ Orbits</button><button id="lock" class="primary">🔓 Edit</button></div>
   <div class="tool-row"><button id="up">↑ Raise</button><button id="down">↓ Lower</button><button id="left">↶ Rotate</button><button id="right">Rotate ↷</button><button id="reset">Reset</button></div>
@@ -94,8 +96,9 @@ body.started #tools {display:flex}
   let lastSeenAt = -Infinity, lastTrackingMessage = '';
   let cameraReady = false, startingCamera = false;
   let orbitsRunning = false, adjustmentsLocked = false;
+  const selectable=[];const panel=makePlanetPanel();let touchStart=null,touchMoved=false,lastNear='',lastProximityCheck=0;
   const HOLD_MS = 1300; // Visual grace period ONLY, not a real world anchor.
-  const STORE_KEY = 'solarExpoMarkerLayoutV3';
+  const STORE_KEY = 'solarExpoMarkerLayoutV5';
   const THREE_GESTURE_LIMIT = .15;
   const defaultLayout = () => ({x:0,y:.06,z:0,scale:.72,yaw:0});
   let layout = defaultLayout();
@@ -105,7 +108,7 @@ body.started #tools {display:flex}
     layout.x = Math.max(-1.5, Math.min(1.5,layout.x));
     layout.y = Math.max(-.3, Math.min(1.5,layout.y));
     layout.z = Math.max(-1.5, Math.min(1.5,layout.z));
-    layout.scale = Math.max(.3, Math.min(10,layout.scale));
+    layout.scale = Math.max(.3, Math.min(3,layout.scale));
     layout.yaw = ((layout.yaw % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
     orbitsRunning = localStorage.getItem('solarExpoOrbitsV3') === 'on';
   } catch (_) { /* Private browsing may block storage. */ }
@@ -127,11 +130,11 @@ body.started #tools {display:flex}
     $('size').textContent = Math.round(layout.scale*100)+'%';
     $('motion').textContent = orbitsRunning ? 'Ⅱ Pause' : '▶ Orbits';
     $('lock').textContent = adjustmentsLocked ? '🔒 Locked' : '🔓 Edit';
-    $('gesture-tip').textContent = adjustmentsLocked ? 'Layout locked · Tap Edit to adjust' : '1 finger: move · 2 fingers: pinch / rotate';
+    $('gesture-tip').textContent = adjustmentsLocked ? 'Layout locked · Tap Edit to adjust' : 'Tap a planet · drag or pinch to adjust';
   }
   function modify(fn) { if(adjustmentsLocked) return; fn(); applyLayout(); persist(); }
   $('smaller').onclick=()=>modify(()=>layout.scale=Math.max(.3,layout.scale/1.2));
-  $('bigger').onclick=()=>modify(()=>layout.scale=Math.min(10,layout.scale*1.2));
+  $('bigger').onclick=()=>modify(()=>layout.scale=Math.min(3,layout.scale*1.2));
   $('up').onclick=()=>modify(()=>layout.y=Math.min(1.5,layout.y+.035));
   $('down').onclick=()=>modify(()=>layout.y=Math.max(-.3,layout.y-.035));
   $('left').onclick=()=>modify(()=>layout.yaw-=Math.PI/12);
@@ -180,18 +183,19 @@ body.started #tools {display:flex}
     layout.z+=dy/innerHeight*.8;
   }
   gestureSurface.addEventListener('touchstart',e=>{
-    if(!everFound || adjustmentsLocked) return;
-    e.preventDefault(); gesture=touchInfo(e.touches);
+    if(!everFound) return;
+    e.preventDefault();const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY};touchMoved=e.touches.length>1;gesture=touchInfo(e.touches);
   },{passive:false});
   gestureSurface.addEventListener('touchmove',e=>{
-    if(!gesture || adjustmentsLocked) return;
-    e.preventDefault();
+    if(!gesture) return;
+    e.preventDefault();if(touchStart && e.touches[0] && Math.hypot(e.touches[0].clientX-touchStart.x,e.touches[0].clientY-touchStart.y)>8)touchMoved=true;
+    if(adjustmentsLocked)return;
     const next=touchInfo(e.touches);
     if(!next) return;
     if(next.n!==gesture.n){gesture=next;return;}
     if(next.n===1){screenDrag(next.x-gesture.x,next.y-gesture.y);}
     else if(next.n===2){
-      if(gesture.dist>4) layout.scale=Math.max(.3,Math.min(10,layout.scale*(next.dist/gesture.dist)));
+      if(gesture.dist>4) layout.scale=Math.max(.3,Math.min(3,layout.scale*(next.dist/gesture.dist)));
       let angle=next.angle-gesture.angle;
       if(angle>Math.PI) angle-=Math.PI*2;
       if(angle< -Math.PI) angle+=Math.PI*2;
@@ -202,7 +206,8 @@ body.started #tools {display:flex}
     gesture=next;applyLayout();
   },{passive:false});
   gestureSurface.addEventListener('touchend',e=>{
-    if(gesture){persist();gesture=touchInfo(e.touches);}
+    if(!e.touches.length && touchStart && !touchMoved)selectAt(touchStart.x,touchStart.y);
+    if(gesture){persist();gesture=touchInfo(e.touches);}if(!e.touches.length)touchStart=null;
   },{passive:false});
   gestureSurface.addEventListener('touchcancel',()=>{gesture=null;persist();},{passive:false});
 
@@ -297,11 +302,11 @@ body.started #tools {display:flex}
     });
     marker.addEventListener('markerLost',()=>{
       markerVisible=false;
-      document.body.classList.remove('has-marker');
-      setStatus('Tracking briefly lost. Keep the full HIRO marker visible…','wait');
+      setStatus('Marker out of view. Showing the last view; point at HIRO again to realign. This view is not fixed to the room.','wait');
     });
     if(scene.hasLoaded) initialize();else scene.addEventListener('loaded',initialize,{once:true});
     setTimeout(()=>{
+      if(everFound)return;
       const video=document.querySelector('video');
       if(!video || video.readyState<2) {
         showResume(true);
@@ -312,19 +317,17 @@ body.started #tools {display:flex}
     },12000);
   }
   startButton.addEventListener('click',startCameraAR);
-  // Match the canvas to the cropped camera image, including in portrait view.
+  // Align the rendered canvas with the camera's cropped image in portrait and landscape.
   let lastCanvasRect='';
-  function syncCanvasToSource() {
-    const source=document.getElementById('arjs-video');
-    const canvas=scene && scene.canvas;
-    if(!source || !canvas) return;
-    const r=source.getBoundingClientRect();
-    if(!r.width || !r.height) return;
+  function syncCanvasToSource(){
+    const source=document.getElementById('arjs-video'),canvas=scene && scene.canvas;
+    if(!source||!canvas)return;
+    const r=source.getBoundingClientRect();if(!r.width||!r.height)return;
     const key=[r.left,r.top,r.width,r.height].map(n=>Math.round(n*10)/10).join(',');
-    if(key===lastCanvasRect) return;
-    lastCanvasRect=key;
-    for(const [prop,value] of Object.entries({position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',margin:'0'})) canvas.style.setProperty(prop,value,'important');
+    if(key===lastCanvasRect)return;lastCanvasRect=key;
+    for(const [prop,value] of Object.entries({position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',margin:'0'}))canvas.style.setProperty(prop,value,'important');
   }
+  function selectAt(x,y){if(!scene||!scene.camera||!anchor.object3D.visible)return;const T=AFRAME.THREE,r=scene.canvas.getBoundingClientRect(),ray=new T.Raycaster();ray.setFromCamera(new T.Vector2((x-r.left)/r.width*2-1,1-(y-r.top)/r.height*2),scene.camera);const hit=ray.intersectObjects(selectable,false)[0];if(hit)panel.show(hit.object.userData.name);}
   function initialize() {
     if(solarSystem || !marker || !anchor) return;
     const THREE=AFRAME.THREE;
@@ -334,8 +337,8 @@ body.started #tools {display:flex}
     layoutRoot.add(solarSystem);
     const ambient=new THREE.AmbientLight(0xffffff,1.5);solarSystem.add(ambient);
     const sunLight=new THREE.PointLight(0xffe6ad,3,4);sunLight.position.set(0,.12,0);solarSystem.add(sunLight);
-    const belt=SpaceEffects.asteroidBelt(THREE,{inner:.385,outer:.425,count:320,rockSize:.0032,height:.12});solarSystem.add(belt);
-    const modelStars=SpaceEffects.starField(THREE,{count:110,radius:1.0,spread:.55,size:2,opacity:.72});modelStars.position.y=.12;solarSystem.add(modelStars);
+    const belt=SpaceEffects.asteroidBelt(THREE,{inner:.385,outer:.425,count:260,rockSize:.0032,height:.12});solarSystem.add(belt);
+    const modelStars=SpaceEffects.starField(THREE,{count:80,radius:1,spread:.55,size:2,opacity:.7});modelStars.position.y=.12;solarSystem.add(modelStars);
     const sphereGeometry = new THREE.SphereGeometry(1, 24, 16);
     orbiters = [];
 
@@ -428,7 +431,7 @@ body.started #tools {display:flex}
       const pivot = new THREE.Group();
       pivot.position.y = .12;
       pivot.rotation.y = i * 1.75;
-      const mesh = ball(p.r, p.colors, p.seed, p);
+      const mesh = ball(p.r, p.colors, p.seed, p);mesh.userData.name=p.name;selectable.push(mesh);
       mesh.position.x = p.d;
       pivot.add(mesh);
       solarSystem.add(pivot);
@@ -453,7 +456,7 @@ body.started #tools {display:flex}
         const moonPivot = new THREE.Group();
         moonPivot.position.x = p.d;
         pivot.add(moonPivot);
-        const moon = ball(.009, ['#bbbdbf','#777e84','#dadcde'], 11);
+        const moon = ball(.009, ['#bbbdbf','#777e84','#dadcde'], 11);moon.userData.name='Moon';selectable.push(moon);
         moon.position.set(.042, .012, 0);
         moonPivot.add(moon);
         orbiters.push({ pivot: moonPivot, mesh: moon, speed: .36 });
@@ -465,6 +468,7 @@ body.started #tools {display:flex}
     applyLayout();
     const targetPos=new THREE.Vector3(),targetQuat=new THREE.Quaternion(),targetScale=new THREE.Vector3();
     let havePose=false;
+    const cameraPos=new THREE.Vector3(),planetPos=new THREE.Vector3(),worldScale=new THREE.Vector3();
     function tick(t) {
       const dt=lastTime?Math.min((t-lastTime)/1000,.05):0;
       lastTime=t;
@@ -486,13 +490,16 @@ body.started #tools {display:flex}
         lastSeenAt=t;
       } else if(havePose) {
         const missingFor=t-lastSeenAt;
-        if(missingFor<HOLD_MS) {
-          anchor.object3D.visible=true; // Only a short visual hold; not a world anchor.
-        } else {
-          anchor.object3D.visible=false;
-          setStatus('HIRO is out of view. Point at the SAME marker again to restore the saved layout.','wait');
-        }
+        // Keep the last camera-relative pose as a visible fallback. This is not world tracking.
+        anchor.object3D.visible=true;
+        if(missingFor>=HOLD_MS) setStatus('Marker out of view. Showing the last view; point at HIRO again to realign. This view is not fixed to the room.','wait');
       }
+      // Only use the live tracked pose for proximity, never the held screen view.
+      if(markerVisible && havePose && scene.camera && t-lastProximityCheck>300){
+        lastProximityCheck=t;scene.object3D.updateMatrixWorld(true);scene.camera.getWorldPosition(cameraPos);let near='',best=Infinity;
+        for(const obj of selectable){obj.getWorldPosition(planetPos);obj.getWorldScale(worldScale);const radius=Math.max(worldScale.x,worldScale.y,worldScale.z);const ratio=cameraPos.distanceTo(planetPos)/Math.max(radius,.00001);if(ratio<8 && ratio<best){best=ratio;near=obj.userData.name;}}
+        if(near && near!==lastNear)panel.show(near);lastNear=near;
+      } else if(!markerVisible)lastNear='';
       if(orbitsRunning && anchor.object3D.visible) {
         belt.rotation.y+=dt*.015;
         for(const o of orbiters){o.pivot.rotation.y+=dt*o.speed;o.mesh.rotation.y+=dt*.18;}

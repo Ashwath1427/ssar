@@ -64,7 +64,6 @@
     <button id="motion" type="button">▶ Start orbits</button>
   </div>
 
-  <script src="space-effects.js"></script>
   <script type="module">
     import * as THREE from 'three';
     import { ARButton } from 'three/addons/webxr/ARButton.js';
@@ -85,7 +84,7 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.enablePan = false;
-    controls.minDistance = 0.12;
+    controls.minDistance = 1.0;
     controls.maxDistance = 4.2;
     controls.target.set(0, 0.12, 0);
     controls.update();
@@ -101,8 +100,6 @@
     scene.add(placementRoot);
     const solarSystem = new THREE.Group();
     placementRoot.add(solarSystem);
-    const belt=SpaceEffects.asteroidBelt(THREE,{inner:.385,outer:.425,count:320,rockSize:.0032,height:.12});solarSystem.add(belt);
-    const modelStars=SpaceEffects.starField(THREE,{count:110,radius:1.0,spread:.55,size:2,opacity:.72});modelStars.position.y=.12;solarSystem.add(modelStars);
     const sphereGeometry = new THREE.SphereGeometry(1, 32, 24);
     const orbiters = [];
 
@@ -220,7 +217,7 @@
         const moonPivot = new THREE.Group();
         moonPivot.position.x = p.d;
         pivot.add(moonPivot);
-        const moon = ball(.009, ['#bbbdbf','#777e84','#dadcde'], 11);
+        const moon = ball(.006, ['#bbbdbf','#777e84','#dadcde'], 11);
         moon.position.set(.042, .012, 0);
         moonPivot.add(moon);
         orbiters.push({ pivot: moonPivot, mesh: moon, speed: .36 });
@@ -259,7 +256,7 @@
     const quickPlaceButton = document.getElementById('quick-place');
     const sizeValue = document.getElementById('size-value');
     const motionButton = document.getElementById('motion');
-    const sizeSteps = [0.40, 0.55, 0.70, 0.85, 1.05, 1.25, 1.50, 2, 2.5, 3.2, 4, 5];
+    const sizeSteps = [0.40, 0.55, 0.70, 0.85, 1.05, 1.25, 1.50];
     const rememberedSize = Number(localStorage.getItem('solarExpoSizeIndex'));
     let sizeIndex = Number.isInteger(rememberedSize) && rememberedSize >= 0 && rememberedSize < sizeSteps.length ? rememberedSize : 3;
     let orbitsRunning = true;  // AR begins paused to make unwanted drift obvious.
@@ -504,7 +501,6 @@
     renderer.setAnimationLoop((_, frame) => {
       const dt = Math.min(clock.getDelta(), .05);
       if (orbitsRunning) {
-        belt.rotation.y += dt*.015;
         for (const o of orbiters) {
           o.pivot.rotation.y += dt * o.speed;
           o.mesh.rotation.y += dt * .18;
